@@ -1,0 +1,5 @@
+#miniconda3 environment
+env
+
+#pycache
+**/__pycache__/

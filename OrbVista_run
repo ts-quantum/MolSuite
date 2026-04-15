@@ -1,0 +1,9 @@
+#!/bin/bash
+HERE="$(dirname "$(readlink -f "$0")")"
+# shared environment folder
+export PATH="$HERE/env/bin:$PATH"
+export LD_LIBRARY_PATH="$HERE/env/lib:$LD_LIBRARY_PATH"
+export PYTHONHOME="$HERE/env"
+
+# start main.py in OrbVista folder
+"$HERE/env/bin/python3" "$HERE/OrbVista/main.py" "$@"

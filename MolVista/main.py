@@ -6,10 +6,29 @@ os.environ.update({
     "LIBGL_DEBUG": "quiet",
     "VTK_SILENT": "1"
 })
-# pathfix
+# 1. Define the path to the local conda environment (relative to script location)
+# Assumes 'env' is located in the parent directory of this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
+env_path = os.path.abspath(os.path.join(script_dir, "..", "env"))
+
+# 2. Dynamically locate the Qt plugin directory 
+# (Paths can vary between 'lib/qt6' and 'lib/qt' depending on architecture/channel)
+qt_plugin_path = os.path.join(env_path, "lib", "qt6", "plugins")
+if not os.path.exists(qt_plugin_path):
+    qt_plugin_path = os.path.join(env_path, "lib", "qt", "plugins")
+
+# 3. Force the application to use the plugins from the local environment
+# This prevents conflicts with system-wide Qt installations (especially on Linux)
+os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(qt_plugin_path, "platforms")
+os.environ["QT_PLUGIN_PATH"] = qt_plugin_path
+
+# 4. Explicitly set the Qt API for PyVista and PySide6
+# This resolves TypeErrors when mixing different Qt bindings (e.g., PyQt vs PySide)
+os.environ["QT_API"] = "pyside6"
+os.environ["PYVISTA_QT_API"] = "pyside6"
+
+# 5. Optional: Force X11 (xcb) on Linux to ensure stability across Wayland/X11 sessions
+os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 import warnings
 import pyvista as pv

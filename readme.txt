@@ -11,6 +11,14 @@ There you can also find macOS releases.
 MolVista: https://github.com/ts-quantum/MolVista
 OrbVista: https://github.com/ts-quantum/OrbVista
 
+## System Requirements (Linux)
+
+Even when using the provided conda environment, ensure your host system has the necessary X11/XCB libraries installed. On Debian-based systems (Ubuntu, Mint, etc.), run:
+
+```bash
+sudo apt update
+sudo apt install libxcb-cursor0 libx11-xcb1 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 libdbus-1-3
+
 Installation
 
 1. Download the appropriate archive for your architecture from the Releases page:

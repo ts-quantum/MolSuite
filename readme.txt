@@ -22,8 +22,8 @@ sudo apt install libxcb-cursor0 libx11-xcb1 libxcb-icccm4 libxcb-image0 libxcb-k
 Installation
 
 1. Download the appropriate archive for your architecture from the Releases page:
-MolSuite_Linux_x86_64.tar.gz (for standard PCs/Intel/AMD)
-MolSuite_Linux_ARM64.tar.gz (for ARM64 devices, e.g., Raspberry Pi, Pinebook, Fedora ARM)
+MolSuite_Linux_x86_64.tar.xz (for standard PCs/Intel/AMD)
+MolSuite_Linux_ARM64.tar.xz (for ARM64 devices, e.g., Raspberry Pi, Pinebook, Fedora ARM)
 
 2.Extract the archive:
 tar -xzvf MolSuite_Linux_ARCH.tar.gz

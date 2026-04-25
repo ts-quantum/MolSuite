@@ -1,56 +1,56 @@
-import sys
+import sys, platform
 import os, re, io
-os.environ.update({
-    "QT_QPA_PLATFORM": "xcb",
-    "MESA_DEBUG": "silent",
-    "LIBGL_DEBUG": "quiet",
-    "VTK_SILENT": "1"
-})
-# 1. Define the path to the local conda environment (relative to script location)
-# Assumes 'env' is located in the parent directory of this script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.abspath(os.path.join(script_dir, "..", "env"))
-
-# 2. Dynamically locate the Qt plugin directory 
-# (Paths can vary between 'lib/qt6' and 'lib/qt' depending on architecture/channel)
-qt_plugin_path = os.path.join(env_path, "lib", "qt6", "plugins")
-if not os.path.exists(qt_plugin_path):
-    qt_plugin_path = os.path.join(env_path, "lib", "qt", "plugins")
-
-# 3. Force the application to use the plugins from the local environment
-# This prevents conflicts with system-wide Qt installations (especially on Linux)
-os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(qt_plugin_path, "platforms")
-os.environ["QT_PLUGIN_PATH"] = qt_plugin_path
-
-# 4. Explicitly set the Qt API for PyVista and PySide6
-# This resolves TypeErrors when mixing different Qt bindings (e.g., PyQt vs PySide)
-os.environ["QT_API"] = "pyside6"
-os.environ["PYVISTA_QT_API"] = "pyside6"
-
-# 5. Optional: Force X11 (xcb) on Linux to ensure stability across Wayland/X11 sessions
-os.environ["QT_QPA_PLATFORM"] = "xcb"
-
-import warnings
 import pyvista as pv
-import vtk
-pv.global_theme.multi_samples = 0
-vtk.vtkObject.GlobalWarningDisplayOff()
-vtk.vtkLogger.SetStderrVerbosity(vtk.vtkLogger.VERBOSITY_OFF)
+if platform.system() == "Darwin":
+    os.environ["QT_API"] = "pyside6"
+    import warnings
+    from pyvista import PyVistaDeprecationWarning
+    warnings.filterwarnings("ignore", category=PyVistaDeprecationWarning)
+else:
+    os.environ.update({
+        "QT_QPA_PLATFORM": "xcb",
+        "MESA_DEBUG": "silent",
+        "LIBGL_DEBUG": "quiet",
+        "VTK_SILENT": "1"
+    })
+    # 1. Define the path to the local conda environment (relative to script location)
+    # Assumes 'env' is located in the parent directory of this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.abspath(os.path.join(script_dir, "..", "env"))
+    # 2. Dynamically locate the Qt plugin directory 
+    # (Paths can vary between 'lib/qt6' and 'lib/qt' depending on architecture/channel)
+    qt_plugin_path = os.path.join(env_path, "lib", "qt6", "plugins")
+    if not os.path.exists(qt_plugin_path):
+        qt_plugin_path = os.path.join(env_path, "lib", "qt", "plugins")
+    # 3. Force the application to use the plugins from the local environment
+    # This prevents conflicts with system-wide Qt installations (especially on Linux)
+    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(qt_plugin_path, "platforms")
+    os.environ["QT_PLUGIN_PATH"] = qt_plugin_path
+    # 4. Explicitly set the Qt API for PyVista and PySide6
+    # This resolves TypeErrors when mixing different Qt bindings (e.g., PyQt vs PySide)
+    os.environ["QT_API"] = "pyside6"
+    os.environ["PYVISTA_QT_API"] = "pyside6"
+    # 5. Optional: Force X11 (xcb) on Linux to ensure stability across Wayland/X11 sessions
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+    # allows for rendering of OpenGL in QtWidgets under Linux/X11
+    from PySide6 import QtCore
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseDesktopOpenGL)
+    import warnings
+    import vtk
+    pv.global_theme.multi_samples = 0
+    vtk.vtkObject.GlobalWarningDisplayOff()
+    vtk.vtkLogger.SetStderrVerbosity(vtk.vtkLogger.VERBOSITY_OFF)
+    pv.global_theme.allow_empty_mesh = True
+    from pyvista import PyVistaDeprecationWarning
+    warnings.filterwarnings("ignore", category=PyVistaDeprecationWarning)
 
-pv.global_theme.allow_empty_mesh = True
-from pyvista import PyVistaDeprecationWarning
-warnings.filterwarnings("ignore", category=PyVistaDeprecationWarning)
 from pyvistaqt import QtInteractor
-
 from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtWidgets import (QApplication, QColorDialog, QFileDialog, 
                              QMessageBox, QDialog, QTextEdit, QVBoxLayout)
 from PySide6.QtGui import QColor
-from PySide6.QtCore import QStringListModel, QTimer
-from PySide6 import QtCore
-# allows for rendering of OpenGL in QtWidgets under Linux/X11
-QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
-QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseDesktopOpenGL)
+from PySide6.QtCore import QStringListModel 
 
 from collections import defaultdict
 import matplotlib
@@ -64,10 +64,12 @@ import pyperclip
 
 from modules.window import Ui_MainWindow
 from modules.modules import draw_mol, align_structures, get_euler_angles, find_best_flip_strategy
-from modules.modules import find_mapping, transform_trajectory, create_smooth_transition, transform_trajectory_masked
+from modules.modules import (find_mapping, transform_trajectory, create_smooth_transition, 
+                             transform_trajectory_masked, bridge_segments)
 from modules.modules import export_pov_header, export_pov_mol, create_split_nw, create_split_orca, create_split_psi4
-from modules.modules import generate_blender_script, generate_blender_script_multi
+from modules.modules import generate_blender_script_multi, generate_blender_script_one
 from modules.modules import ExportWorker, OneFileExportWorker
+from modules.settings import Ui_Settings
 
 # Atomic Symbol to Atomic Number Mapping
 SYMBOL_TO_Z = {
@@ -197,6 +199,78 @@ class CreditsWindow(QDialog):
                 return f.read()
         return "<h1>Credits file not found.</h1>"
     
+class SettingsDialog(QtWidgets.QDialog, Ui_Settings):
+    def __init__(self, parent, is_bridging, rmsd_thr, n_bridgin_pts, is_splicing, n_splicing_pts):
+        super().__init__(parent)
+        self.setupUi(self) 
+        valid_locale = QtCore.QLocale(QtCore.QLocale.Language.English)
+        double_validator = QtGui.QDoubleValidator(0.0, 100.0, 4, self)
+        double_validator.setNotation(QtGui.QDoubleValidator.Notation.StandardNotation)
+        double_validator.setLocale(valid_locale)
+        self.edit_rmsd.setValidator(double_validator)
+        int_validator = QtGui.QIntValidator(0, 9999, self) 
+        self.bridging_pts.setValidator(int_validator)
+        self.splicing_pts.setValidator(int_validator)
+
+        # current values from main app are written to UI fields
+        self.edit_rmsd.setText(str(rmsd_thr))
+        self.bridging_pts.setText(str(n_bridgin_pts))
+        self.splicing_pts.setText(str(n_splicing_pts))
+        self.bridging.setChecked(is_bridging)
+        self.splicing.setChecked(is_splicing)
+       
+        # connect events and define signals ("Accept" returns 'Accepted')
+        self.Apply.clicked.connect(self.validate_and_accept)
+        self.Cancel.clicked.connect(self.reject)
+
+        self.bridging.clicked.connect(self.bridging_clicked)
+        self.splicing.clicked.connect(self.splicing_clicked)
+
+        self.bridging_clicked()
+        self.splicing_clicked()
+
+    def bridging_clicked(self):
+        if self.bridging.isChecked():
+            self.bridging_pts.setEnabled(True)
+        else:
+            self.bridging_pts.setEnabled(False)
+    
+    def splicing_clicked(self):
+        if self.splicing.isChecked():
+            self.splicing_pts.setEnabled(True)
+        else:
+            self.splicing_pts.setEnabled(False)
+
+    def validate_and_accept(self):
+        """ check entered values """
+        # always check RMSD 
+        if not self.edit_rmsd.hasAcceptableInput() or self.edit_rmsd.text() == "":
+            QtWidgets.QMessageBox.warning(self, "Error", "Please enter a valid RMSD threshold.")
+            return
+
+        # only check when active
+        if self.bridging.isChecked():
+            if not self.bridging_pts.hasAcceptableInput() or self.bridging_pts.text() == "":
+                QtWidgets.QMessageBox.warning(self, "Error", "Please enter bridging points.")
+                return
+
+        if self.splicing.isChecked():
+            if not self.splicing_pts.hasAcceptableInput() or self.splicing_pts.text() == "":
+                QtWidgets.QMessageBox.warning(self, "Error", "Please enter splicing points.")
+                return
+
+        self.accept()
+
+    def get_values(self):
+        # return values (from UI fields)
+        return (
+                self.bridging.isChecked(),
+                float(self.edit_rmsd.text() or "0.0"),
+                int(self.bridging_pts.text() or "0"),
+                self.splicing.isChecked(),
+                int(self.splicing_pts.text() or "0")
+            )
+        
 class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
@@ -227,10 +301,11 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             target_widget.dropEvent = dropEvent
 
         # Plotter Lists
-        self.geo_plotters = []
-        self.profile_canvases = []
         self.geo_widgets = [self.geo_view_0, self.geo_view_1, self.geo_view_2, self.geo_view_3]
         self.profile_widgets = [self.profile_view_0, self.profile_view_1, self.profile_view_2]
+        
+        self.geo_plotters = []
+        self.profile_canvases = []
 
         # 1. 3D-Plotter (PyVista/VTK)
         for i, widget in enumerate(self.geo_widgets):
@@ -249,7 +324,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             interactor = plt.interactor
             interactor.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
             interactor.customContextMenuRequested.connect(self.show_geo_menu)
-
+            
             if i in [0, 1]: plt.enable_mesh_picking(
                 callback=lambda mesh, idx=i: self.on_atom_picked(mesh, idx),
                 show_message=False,
@@ -265,9 +340,9 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             # Y-axis:  offset
             y_fmt = ScalarFormatter(useOffset=True)
             y_fmt.set_scientific(True)
-            y_fmt.set_powerlimits((0, 0))
+            y_fmt.set_powerlimits((0, 0)) 
             ax.yaxis.set_major_formatter(y_fmt)
-
+            
             # X-axis: no offset
             x_fmt = ScalarFormatter(useOffset=False)
             x_fmt.set_scientific(False)
@@ -275,12 +350,12 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
 
             if widget.layout() is None:
                 layout = QtWidgets.QVBoxLayout(widget)
-                layout.setContentsMargins(5, 5, 5, 5)
+                layout.setContentsMargins(5, 5, 5, 5) 
                 widget.setLayout(layout)
             widget.layout().addWidget(canvas)
             canvas.mpl_connect('pick_event', self.on_plot_picked)
             self.profile_canvases.append(canvas)
-
+        
         for canvas in self.profile_canvases:
             canvas.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
             canvas.customContextMenuRequested.connect(self.show_profile_menu)
@@ -294,6 +369,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionLoad_trj.triggered.connect(self.load_trj)
         self.actionAlign.triggered.connect(self.align)
         self.actionAlign_masked.triggered.connect(self.align_masked)
+        self.actionSettings.triggered.connect(self.show_settings)
         self.actionHelp.triggered.connect(self.help)
         self.actionCredits.triggered.connect(self.credits)
 
@@ -398,6 +474,13 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         }
         # Standard Radius for unknown elements
         self.default_radius = 1.0
+
+        #init Settings
+        self.bridging = True
+        self.splicing = True
+        self.bridging_pts = 10
+        self.splicing_pts = 30
+        self.rmsd_thr = 0.2
 
     def _setup_split_dialog(self):
         self.split_dialog = QMessageBox(self)
@@ -733,9 +816,14 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         
         # Compute the final rotation matrix using the mapped coordinates
         # Note: mapping is applied to coords2 to align correct atom pairs
-        aligned_coords2, R, centroid_ref, centroid_target = align_structures(coords1, coords2[mapping])
-        
+        aligned_coords2, R, centroid_ref, centroid_target, rmsd = align_structures(coords1, coords2[mapping])
         angles = get_euler_angles(R)
+        if rmsd < self.rmsd_thr:
+            self.log(f"Kabsch Alignment RMSD: {rmsd:.4f} - excellent fit", "success")
+        elif rmsd >= self.rmsd_thr:
+            self.log(f"Kabsch Alignment RMSD: {rmsd:.4f} - poor fit", "warning")
+            if self.bridging == True:
+                self.log(f"{self.bridging_pts} extra points for smooth transition at junction will be added", "warning")
         self.log(f"Kabsch Alignment rotation: X={angles[0]:.2f}°, Y={angles[1]:.2f}°, Z={angles[2]:.2f}°", "info")
         self.log(f"Kabsch ref. translation x={centroid_ref[0]:.2f} y={centroid_ref[1]:.2f} z={centroid_ref[2]:.2f}", "info")
         self.log(f"Kabsch target translation x={centroid_target[0]:.2f} y={centroid_target[1]:.2f} z={centroid_target[2]:.2f}", "info")
@@ -762,8 +850,14 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         aligned_traj2_coords = transform_trajectory(data_[1].atom_points, R,
                                                          centroid_ref, centroid_target)
         
-        combined_points = np.array(data_[0].atom_points + aligned_traj2_coords[1:])
-        combined_types = data_[0].atom_types + data_[1].atom_types[1:]
+        trans_pts = []
+        trans_tps = []
+        if rmsd >= self.rmsd_thr and self.bridging == True:
+            # bridge segments in case of high rmsd
+            trans_pts, trans_tps = bridge_segments(coords1, aligned_coords2, types, steps=self.bridging_pts) 
+        
+        combined_points = np.array(data_[0].atom_points + list(trans_pts) + aligned_traj2_coords[1:])
+        combined_types = data_[0].atom_types + list(trans_tps) + data_[1].atom_types[1:]
 
         # Energy Offset Calculation
         # first energy of Segment 1 must match last energy of Segment 0
@@ -772,6 +866,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # merge using the adjusted energies
         combined_energies = (list(data_[0].energies) + 
+                            [energy_offset+data_[1].energies[0]] * len(trans_pts) +
                             list(adjusted_energies1[1:]))
         
         #combined_energies = data_[0].energies + data_[1].energies[1:]
@@ -814,7 +909,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         # get datasets
         data_ = [self.dataset_dict[self.data_attached[i]] for i in range(2)]
         id = [int(self.pl1[i][0].get_xdata()[0]) for i in range(2)]
-        
+
         # 1. extract rigid backbone
         indices0 = self.get_alignment_mask(0, len(data_[0].atom_types[id[0]]))
         indices1 = self.get_alignment_mask(1, len(data_[1].atom_types[id[1]]))
@@ -855,14 +950,19 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         coords1_rigid = data_[0].atom_points[id[0]][indices0]
         coords2_rigid = data_[1].atom_points[id[1]][sorted_indices1]
         
-        aligned_coords2, R, centroid_ref, centroid_target = align_structures(coords1_rigid, coords2_rigid)
-
+        aligned_coords2, R, centroid_ref, centroid_target, rmsd = align_structures(coords1_rigid, coords2_rigid)
         angles = get_euler_angles(R)
+        if rmsd < self.rmsd_thr:
+            self.log(f"Kabsch Alignment RMSD: {rmsd:.4f} - excellent fit", "success")
+        elif rmsd > self.rmsd_thr:
+            self.log(f"Kabsch Alignment RMSD: {rmsd:.4f} - poor fit", "warning")
+            if self.bridging == True:
+                self.log(f"{self.bridging_pts} extra points for smooth transition at junction will be added", "warning")
         self.log(f"Kabsch Alignment rotation: X={angles[0]:.2f}°, Y={angles[1]:.2f}°, Z={angles[2]:.2f}°", "info")
         self.log(f"Kabsch ref. translation x={centroid_ref[0]:.2f} y={centroid_ref[1]:.2f} z={centroid_ref[2]:.2f}", "info")
         self.log(f"Kabsch target translation x={centroid_target[0]:.2f} y={centroid_target[1]:.2f} z={centroid_target[2]:.2f}", "info")
 
-         # overlay plot on geo_plotter_3
+        # overlay plot on geo_plotter_3
         self.plotter_3.clear()
         
         # (Original = Ref)
@@ -889,42 +989,53 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         # We pass the parallel lists:
         mapping_pair = (indices0, sorted_indices1)
 
-        steps = int(self.N_splicing.text())
-        if self.splicing.isChecked():
+        if self.splicing == True:
             # The function must now internally interpolate mapping_pair[0][i] with mapping_pair[1][i]
             trans_pts, trans_tps = create_smooth_transition(
                 data_[0].atom_points[id[0]], 
                 aligned_traj2_coords[id[1]], 
                 data_[0].atom_types[id[0]], # Original Types Segment 0
                 data_[1].atom_types[id[1]],# Original Types Segment 1
-                mapping_pair,        # Mapping-Paar 
-                steps=steps
+                mapping_pair,        # Mapping-Paar
+                rmsd,
+                coords1_rigid, aligned_coords2, types_ref,
+                rmsd_thr=self.rmsd_thr,
+                bridging_pts=self.bridging_pts,
+                is_brigding=self.bridging,
+                steps=self.splicing_pts
             )
         else:
             trans_pts, trans_tps = [], []
             self.log("splicing NOT active, NO additional segments for fragment " \
             "phase in and out will be inserted", "warning") 
+            # bridge segments in case of high rmsd
+            if rmsd >= self.rmsd_thr and self.bridging == True:
+                trans_pts, trans_tps = bridge_segments(coords1_rigid, aligned_coords2, types_ref, 
+                                                   steps = self.bridging_pts)
         
         # 5. Combine datasets
         # Since Segment 0 and 1 may have different atoms, 
         # 'combined_types' will follow the types of Segment 1 from the splicing point onwards.
         points0 = data_[0].atom_points[:id[0]+1]
-        types0 = data_[0].atom_types # remains constant for first part
-        
+        types0 = data_[0].atom_types[:id[0]+1] # remains constant for first part
+        energies0_cut = data_[0].energies[:id[0]+1] 
+
         points1 = aligned_traj2_coords[id[1]:]
-        types1 = data_[1].atom_types # past junction point
-        
-        combined_points = list(points0) + trans_pts + list(points1[1:])
-        combined_types = list(types0) + trans_tps + list(types1[1:])
+        types1 = data_[1].atom_types[id[1]:] # past junction point
+        energies1_cut = data_[1].energies[id[1]:]
+
+        combined_points = list(points0) + list(trans_pts) + list(points1[1:])
+        combined_types = list(types0) + list(trans_tps) + list(types1[1:])
 
         # Energy Offset Calculation
         # first energy of Segment 1 must match last energy of Segment 0
-        energy_offset = data_[0].energies[-1] - data_[1].energies[0]
-        adjusted_energies1 = [e + energy_offset for e in data_[1].energies]
+        energy_offset = energies0_cut[-1] - energies1_cut[0]
+        adjusted_energies1 = [e + energy_offset for e in energies1_cut]
+
 
         # merge using the adjusted energies
-        last_energy_val = data_[0].energies[-1]
-        combined_energies = (list(data_[0].energies) + 
+        last_energy_val = energies0_cut[-1]
+        combined_energies = (list(energies0_cut) + 
                             [last_energy_val] * len(trans_pts) + 
                             list(adjusted_energies1[1:]))
 
@@ -940,6 +1051,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             atom_types=combined_types,
             energies=combined_energies
         )
+
         self.dataset_dict[name]=combined_data
         current=self.list_model.stringList()
         if name not in current: 
@@ -960,6 +1072,16 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.credits_win = CreditsWindow(self)
         self.credits_win.show()
         self.credits_win.raise_()
+
+    def show_settings(self):
+        # current values in main app are handed over to grid_settings dialog
+        dialog = SettingsDialog(self, self.bridging, self.rmsd_thr, self.bridging_pts,  self.splicing, self.splicing_pts)
+        # User clicks 'Apply':
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            new_data = dialog.get_values()
+            if new_data:
+                # new values are handed over to main app
+                self.bridging, self.rmsd_thr, self.bridging_pts,  self.splicing, self.splicing_pts = new_data
 
     # geo_plotter drop-down 
     def show_geo_menu(self, pos):
@@ -1066,28 +1188,40 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         
         obj = self.data_attached[idx]
         data_ = self.dataset_dict.get(obj)
-        if data_ is None:return
+        if data_ is None: return
 
         new_name=os.path.splitext(os.path.basename(path))[0]
-        current=self.list_model.stringList()
-        if data_.name in current:
-            idx = current.index(data_.name)
-            current[idx] = new_name
-            self.list_model.setStringList(current)
-        data_.name = new_name
 
+        #Update Dictionary
+        if obj != new_name:
+            self.dataset_dict[new_name] = self.dataset_dict.pop(obj)
+            data_.name = new_name
+            self.data_attached[idx] = new_name
+        
+        #Update ListBox
+        current_list = self.list_model.stringList()
+        if obj in current_list:
+            l_idx = current_list.index(obj)
+            current_list[l_idx] = new_name
+            self.list_model.setStringList(current_list)
+
+        #write xyz
         n_steps = len(data_.energies)
-        n_atoms = len(data_.atom_types[0])
         with open(path, 'w') as f:
             for j in range(n_steps):
-                f.write(f"{n_atoms}\n")
-                energy = data_.energies[j] if data_.energies[j] is not None else 0.0
-                f.write(f"Energy: {energy:16.10f}\n")
-                for i in range(n_atoms):
-                    atom_coord = data_.atom_points[j][i]
-                    at_num = data_.atom_types[j][i]
-                    symbol = Z_TO_SYMBOL.get(at_num, "X") 
-                    f.write(f"{symbol:2} {atom_coord[0]:12.8f} {atom_coord[1]:12.8f} {atom_coord[2]:12.8f}\n")
+                try:
+                    n_atoms = len(data_.atom_types[j])
+                    f.write(f"{n_atoms}\n")
+                    energy = data_.energies[j] if data_.energies[j] is not None else 0.0
+                    f.write(f"Energy: {energy:16.10f}\n")
+                    for i in range(n_atoms):
+                        atom_coord = data_.atom_points[j][i]
+                        at_num = data_.atom_types[j][i]
+                        symbol = Z_TO_SYMBOL.get(at_num, "X") 
+                        f.write(f"{symbol:2} {atom_coord[0]:12.8f} {atom_coord[1]:12.8f} {atom_coord[2]:12.8f}\n")
+                except Exception as e:
+                    self.log(f"Error in Frame {j}: {e}", "error")
+                    continue
         self.log(f"xyz data {data_.name} written as: {os.path.basename(path)}", "success")
 
         # Create split script
@@ -1226,14 +1360,16 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
                            self.default_radius,self.cpk_colors,path,object,i+1)
         self.log(f"POV-Ray *.inc written: {os.path.basename(path)}", "success")
 
-    def on_export_finished(self, success, folder, base_name):
+    ### Blender MULTI File:
+    def on_export_finished(self, success, folder, script_name):
         self.progressBar.setFormat(f"")
         self.progressBar.hide()
         self.cancel_export.hide()
         self.cancel_export.setEnabled(True)
         if success:
-            generate_blender_script_multi(folder, base_name)
+            generate_blender_script_multi(folder, script_name)
             self.log(f"Blender multi file export done to {folder}", "success")
+            self.log(f"Blender Import and Animate Script written to {script_name}", "success")
         else:
             self.log(f"Export cancelled", "warning")
     
@@ -1257,7 +1393,9 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         data_ = self.dataset_dict.get(obj)
         if data_ is None: return
     
-        base_name = "irc_step"
+        base_name = "trj_step" # For the file: trj_step_001.glb
+        obj_prefix = "mol" # For the object inside: mol_001
+        script_name = "import_and_animate.py" # blender Script
 
         raw_points = [np.array(p) for p in data_.atom_points]
         raw_types = list(data_.atom_types)
@@ -1268,7 +1406,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         # 2. Create the list of tasks for EVERY frame
         # This is the list the executor will iterate over later
         tasks = [
-            (i, raw_points[i], raw_types[i], pure_cpk, pure_radii, def_rad, folder, base_name)
+            (i, raw_points[i], raw_types[i], pure_cpk, pure_radii, def_rad, folder, base_name, obj_prefix)
             for i in range(len(raw_points))
         ]
 
@@ -1276,19 +1414,21 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.progressBar.show()
         self.cancel_export.show()
 
-        self.worker = ExportWorker(tasks, folder, base_name)
+        self.worker = ExportWorker(tasks, folder, base_name, obj_prefix, script_name)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.on_export_finished)
         self.worker.start()
 
-    def on_one_file_finished(self, success, path):
+    ### Blender ONE File :
+    def on_one_file_finished(self, success, path, script_name):
         self.progressBar.hide()
         self.progressBar.setRange(0, 100) # reset progressbar
         self.cancel_export.hide()
         if success:
             # generate blender script
-            generate_blender_script(path)
-            self.log(f"Blender One File export complete, {os.path.basename(path)}", "success")
+            generate_blender_script_one(path, script_name)
+            self.log(f"Blender One File export complete, file written: {os.path.basename(path)}", "success")
+            self.log(f"Blender Import and Animate Script written to: {script_name}", "success")
             
     def handle_blender_one(self, idx):
         path, _ = QFileDialog.getSaveFileName(
@@ -1302,12 +1442,15 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         
         obj = self.data_attached[idx]
         data_ = self.dataset_dict.get(obj)
-        if data_ is None:return
+        if data_ is None: return
+        
+        obj_prefix = "mol" # For the object inside: mol_001
+        script_name = "import_and_animate.py" # blender Script
         
         self.progressBar.setFormat("Bld Export startet... %p%")
         self.progressBar.show()
         self.cancel_export.show()
-        self.one_worker = OneFileExportWorker(data_, path, self.cpk_colors, 
+        self.one_worker = OneFileExportWorker(data_, path, obj_prefix, script_name, self.cpk_colors, 
                                           self.cov_radii, self.default_radius)
         self.one_worker.finished.connect(self.on_one_file_finished)
         self.one_worker.start()
@@ -1398,8 +1541,12 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.log("Graph image copied to clipboard", "success")
 
 if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv) 
+    app = QtWidgets.QApplication(sys.argv)    
     window = MoleculeApp()
-    window.show()   
+    window.show() 
+    if platform.system() == "Darwin":
+        # macOS Fokus-Fix
+        window.raise_()
+        window.activateWindow()
     
     sys.exit(app.exec())

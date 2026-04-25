@@ -16,16 +16,15 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel,
-    QLineEdit, QListView, QMainWindow, QMenu,
-    QMenuBar, QPlainTextEdit, QProgressBar, QPushButton,
-    QSizePolicy, QStatusBar, QWidget)
+from PySide6.QtWidgets import (QApplication, QLabel, QListView, QMainWindow,
+    QMenu, QMenuBar, QPlainTextEdit, QProgressBar,
+    QPushButton, QSizePolicy, QStatusBar, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1264, 817)
+        MainWindow.resize(1268, 810)
         self.actionLoad_trj = QAction(MainWindow)
         self.actionLoad_trj.setObjectName(u"actionLoad_trj")
         self.actionQuit = QAction(MainWindow)
@@ -48,6 +47,8 @@ class Ui_MainWindow(object):
         self.actionHelp.setObjectName(u"actionHelp")
         self.actionCredits = QAction(MainWindow)
         self.actionCredits.setObjectName(u"actionCredits")
+        self.actionSettings = QAction(MainWindow)
+        self.actionSettings.setObjectName(u"actionSettings")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.geo_view_0 = QWidget(self.centralwidget)
@@ -110,41 +111,19 @@ class Ui_MainWindow(object):
         self.label = QLabel(self.centralwidget)
         self.label.setObjectName(u"label")
         self.label.setGeometry(QRect(10, 480, 131, 16))
-        self.layoutWidget = QWidget(self.centralwidget)
-        self.layoutWidget.setObjectName(u"layoutWidget")
-        self.layoutWidget.setGeometry(QRect(910, 10, 331, 33))
-        self.horizontalLayout = QHBoxLayout(self.layoutWidget)
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
-        self.button_toggle_2 = QPushButton(self.layoutWidget)
+        self.button_toggle_2 = QPushButton(self.centralwidget)
         self.button_toggle_2.setObjectName(u"button_toggle_2")
-
-        self.horizontalLayout.addWidget(self.button_toggle_2)
-
-        self.splicing = QCheckBox(self.layoutWidget)
-        self.splicing.setObjectName(u"splicing")
-        self.splicing.setChecked(True)
-
-        self.horizontalLayout.addWidget(self.splicing)
-
-        self.label_2 = QLabel(self.layoutWidget)
-        self.label_2.setObjectName(u"label_2")
-
-        self.horizontalLayout.addWidget(self.label_2)
-
-        self.N_splicing = QLineEdit(self.layoutWidget)
-        self.N_splicing.setObjectName(u"N_splicing")
-
-        self.horizontalLayout.addWidget(self.N_splicing)
-
+        self.button_toggle_2.setGeometry(QRect(910, 10, 109, 32))
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1264, 33))
+        self.menubar.setGeometry(QRect(0, 0, 1268, 33))
         self.menuFile = QMenu(self.menubar)
         self.menuFile.setObjectName(u"menuFile")
         self.menuAction = QMenu(self.menubar)
         self.menuAction.setObjectName(u"menuAction")
+        self.menuHelp = QMenu(self.menubar)
+        self.menuHelp.setObjectName(u"menuHelp")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -152,14 +131,15 @@ class Ui_MainWindow(object):
 
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuAction.menuAction())
+        self.menubar.addAction(self.menuHelp.menuAction())
         self.menuFile.addAction(self.actionLoad_trj)
         self.menuFile.addAction(self.actionQuit)
         self.menuAction.addAction(self.actionAlign)
         self.menuAction.addAction(self.actionAlign_masked)
         self.menuAction.addSeparator()
-        self.menuAction.addAction(self.actionHelp)
-        self.menuAction.addSeparator()
-        self.menuAction.addAction(self.actionCredits)
+        self.menuAction.addAction(self.actionSettings)
+        self.menuHelp.addAction(self.actionHelp)
+        self.menuHelp.addAction(self.actionCredits)
 
         self.retranslateUi(MainWindow)
 
@@ -179,15 +159,14 @@ class Ui_MainWindow(object):
         self.actionAlign_masked.setText(QCoreApplication.translate("MainWindow", u"Align masked", None))
         self.actionHelp.setText(QCoreApplication.translate("MainWindow", u"Help", None))
         self.actionCredits.setText(QCoreApplication.translate("MainWindow", u"Credits", None))
+        self.actionSettings.setText(QCoreApplication.translate("MainWindow", u"Settings", None))
         self.button_toggle_0.setText(QCoreApplication.translate("MainWindow", u"Play/Pause", None))
         self.button_toggle_1.setText(QCoreApplication.translate("MainWindow", u"Play/Pause", None))
         self.cancel_export.setText(QCoreApplication.translate("MainWindow", u"Cancel", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"Action Log", None))
         self.button_toggle_2.setText(QCoreApplication.translate("MainWindow", u"Play/Pause", None))
-        self.splicing.setText(QCoreApplication.translate("MainWindow", u"splicing", None))
-        self.label_2.setText(QCoreApplication.translate("MainWindow", u"Splicing images", None))
-        self.N_splicing.setText(QCoreApplication.translate("MainWindow", u"30", None))
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuAction.setTitle(QCoreApplication.translate("MainWindow", u"Action", None))
+        self.menuHelp.setTitle(QCoreApplication.translate("MainWindow", u"Help", None))
     # retranslateUi
 

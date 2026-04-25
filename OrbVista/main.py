@@ -1,34 +1,47 @@
-import sys
-import os
-os.environ.update({
-    "QT_QPA_PLATFORM": "xcb",
-    "MESA_DEBUG": "silent",
-    "LIBGL_DEBUG": "quiet",
-    "VTK_SILENT": "1"
-})
-# 1. Define the path to the local conda environment (relative to script location)
-# Assumes 'env' is located in the parent directory of this script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.abspath(os.path.join(script_dir, "..", "env"))
-
-# 2. Dynamically locate the Qt plugin directory 
-# (Paths can vary between 'lib/qt6' and 'lib/qt' depending on architecture/channel)
-qt_plugin_path = os.path.join(env_path, "lib", "qt6", "plugins")
-if not os.path.exists(qt_plugin_path):
-    qt_plugin_path = os.path.join(env_path, "lib", "qt", "plugins")
-
-# 3. Force the application to use the plugins from the local environment
-# This prevents conflicts with system-wide Qt installations (especially on Linux)
-os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(qt_plugin_path, "platforms")
-os.environ["QT_PLUGIN_PATH"] = qt_plugin_path
-
-# 4. Explicitly set the Qt API for PyVista and PySide6
-# This resolves TypeErrors when mixing different Qt bindings (e.g., PyQt vs PySide)
-os.environ["QT_API"] = "pyside6"
-os.environ["PYVISTA_QT_API"] = "pyside6"
-
-# 5. Optional: Force X11 (xcb) on Linux to ensure stability across Wayland/X11 sessions
-os.environ["QT_QPA_PLATFORM"] = "xcb"
+import sys, os, platform
+# macOS (Apple Silicon Check)
+import pyvista as pv
+import vtk
+if platform.system() == "Darwin":
+    base_dir = os.path.dirname(sys.executable)
+    if base_dir not in sys.path:
+        sys.path.insert(0, base_dir)
+    os.environ["QT_API"] = "pyside6"
+    
+else: #Linux
+    os.environ.update({
+        "QT_QPA_PLATFORM": "xcb",
+        "MESA_DEBUG": "silent",
+        "LIBGL_DEBUG": "quiet",
+        "VTK_SILENT": "1"
+    })
+    # 1. Define the path to the local conda environment (relative to script location)
+    # Assumes 'env' is located in the parent directory of this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.abspath(os.path.join(script_dir, "..", "env"))
+    # 2. Dynamically locate the Qt plugin directory 
+    # (Paths can vary between 'lib/qt6' and 'lib/qt' depending on architecture/channel)
+    qt_plugin_path = os.path.join(env_path, "lib", "qt6", "plugins")
+    if not os.path.exists(qt_plugin_path):
+        qt_plugin_path = os.path.join(env_path, "lib", "qt", "plugins")
+    # 3. Force the application to use the plugins from the local environment
+    # This prevents conflicts with system-wide Qt installations (especially on Linux)
+    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(qt_plugin_path, "platforms")
+    os.environ["QT_PLUGIN_PATH"] = qt_plugin_path
+    # 4. Explicitly set the Qt API for PyVista and PySide6
+    # This resolves TypeErrors when mixing different Qt bindings (e.g., PyQt vs PySide)
+    os.environ["QT_API"] = "pyside6"
+    os.environ["PYVISTA_QT_API"] = "pyside6"
+    # 5. Optional: Force X11 (xcb) on Linux to ensure stability across Wayland/X11 sessions
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+    # allows for rendering of OpenGL in QtWidgets under Linux/X11
+    from PySide6 import QtCore
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseDesktopOpenGL)
+    pv.global_theme.multi_samples = 0
+    vtk.vtkObject.GlobalWarningDisplayOff()
+    vtk.vtkLogger.SetStderrVerbosity(vtk.vtkLogger.VERBOSITY_OFF)
+    import psutil
 
 from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtWidgets import QApplication, QColorDialog, QFileDialog
@@ -36,15 +49,6 @@ from PySide6.QtWidgets import QDialog, QTextEdit, QVBoxLayout
 from PySide6.QtGui import QColor
 from PySide6.QtCore import QStringListModel, Qt
 from PySide6.QtCore import QThread
-from PySide6 import QtCore
-# allows for rendering of OpenGL in QtWidgets under Linux/X11
-QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
-QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseDesktopOpenGL)
-import pyvista as pv
-import vtk
-pv.global_theme.multi_samples = 0
-vtk.vtkObject.GlobalWarningDisplayOff()
-vtk.vtkLogger.SetStderrVerbosity(vtk.vtkLogger.VERBOSITY_OFF)
 from pyvistaqt import QtInteractor 
 import matplotlib
 matplotlib.use('QtAgg')
@@ -55,13 +59,12 @@ import pyscf.tools.molden as molden_tools
 from pyscf import data, lib, gto
 from cclib.io import ccread
 from collections import defaultdict
-import vtk
-import time, platform, subprocess
-import psutil
+import time, subprocess
 
 from modules.export import (export_pov_colorbar, export_pov_esp, export_pov_mol, export_pov_header_esp,
                             export_pov_header_mo, export_pov_header_mol, export_pov_header_spin,
-                            export_pov_header_spin_mapped, export_pov_mo, save_cube, save_xyz)
+                            export_pov_header_spin_mapped, export_pov_mo, create_3d_colorbar_group,
+                            save_cube, save_xyz)
 from modules.draw import (draw_dens, draw_esp, draw_mol, draw_orb_molden, draw_orb, draw_spin,
                           draw_spin_mapped, prep_esp_molden)
 from modules.draw import ESPWorkerThread
@@ -91,9 +94,9 @@ class GridSettingsDialog(QtWidgets.QDialog, Ui_Grid_settings):
                 int(self.edit_nx.text()),
                 int(self.edit_ny.text()),
                 int(self.edit_nz.text()),
-                int(self.edit_padding.text()),
-                int(self.edit_iso.text()),
-                int(self.edit_iso_m.text())
+                float(self.edit_padding.text()),
+                float(self.edit_iso.text()),
+                float(self.edit_iso_m.text())
             )
         except ValueError:
             return None
@@ -547,14 +550,13 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
     def show_grid_settings(self):
         # current values in main app are handed over to grid_settings dialog
         dialog = GridSettingsDialog(self, self.nx, self.ny, self.nz, self.padding, self.iso_value, self.iso_value_m)
-        
         # User clicks 'Apply':
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             new_data = dialog.get_values()
             if new_data:
                 # new values are handed over to main app
-                self.nx, self.ny, self.nz, self.padding, self.iso_value, self.iso_vaulue_m = new_data
-
+                self.nx, self.ny, self.nz, self.padding, self.iso_value, self.iso_value_m = new_data
+   
 # change color by right click
     def _on_right_click(self, interactor=None, event=None):
         # 1. Set Zoom Factor to 0 
@@ -1228,7 +1230,38 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
                     "molecule_scene", 
                     "glTF Binary (*.glb);;glTF JSON (*.gltf)"
                     )
+        if not path:  
+            return
+        
         self.plotter.export_gltf(path)
+
+        name, ext = os.path.splitext(path)  # separates "C:/.../scene" and ".glb"
+        cb_path = f"{name}_cb{ext}" # insert "_cb"
+        cb_group = None
+        selection = self.file_list.selectionModel().selectedIndexes()
+        cb_pl = pv.Plotter(off_screen=True)
+        items = [index.data() for index in selection]
+        if len(items) == 1:
+            data_ = self.dataset_dict.get(items[0])
+            match data_.type:
+                case "molden":
+                    if hasattr(self, "current_mode"):
+                        match self.current_mode:
+                            case "esp" | "spin-mapped":
+                                cb_group = create_3d_colorbar_group(self.v_min, self.v_max, self.current_mode, self.cmap)
+                                for mesh, base_name, kwargs in cb_group:
+                                    cb_pl.add_mesh(mesh, name=f"{base_name}_emit", **kwargs)
+
+        elif len(items) ==2:  # esp cube
+            data_1=self.dataset_dict.get(items[0])
+            data_2=self.dataset_dict.get(items[1])
+            if {data_1.type, data_2.type} == {"dens_cube", "esp_cube"}:  
+                cb_group = create_3d_colorbar_group(self.v_min, self.v_max, "esp", self.cmap)
+                for mesh, base_name, kwargs in cb_group:
+                    cb_pl.add_mesh(mesh, name=f"{base_name}_emit", **kwargs)
+        if cb_group:
+         cb_pl.export_gltf(cb_path)
+         cb_pl.close()
 
     def export_cube(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -1299,12 +1332,16 @@ if __name__ == '__main__':
     try:
         n_threads = get_optimal_cores()
         lib.num_threads(n_threads)
-        print(f"Auto-Config: PySCF uses {n_threads} Threads.")
+        #print(f"Auto-Config: PySCF uses {n_threads} Threads.")
     except Exception as e:
         print(f"Could not set Threads automatically: {e}")
 
     window = MoleculeApp()
-    window.show()   
+    window.show() 
 
+    if platform.system() == "Darwin":
+        # macOS Fokus-Fix
+        window.raise_()
+        window.activateWindow()
     
     sys.exit(app.exec())

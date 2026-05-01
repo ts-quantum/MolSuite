@@ -16,27 +16,31 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QLineEdit,
-    QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+    QPushButton, QSizePolicy, QSlider, QSpinBox,
+    QVBoxLayout, QWidget)
 
 class Ui_Settings(object):
     def setupUi(self, Settings):
         if not Settings.objectName():
             Settings.setObjectName(u"Settings")
-        Settings.resize(400, 323)
+        Settings.resize(402, 473)
         self.Apply = QPushButton(Settings)
         self.Apply.setObjectName(u"Apply")
-        self.Apply.setGeometry(QRect(260, 200, 113, 32))
+        self.Apply.setGeometry(QRect(270, 380, 113, 32))
         self.Cancel = QPushButton(Settings)
         self.Cancel.setObjectName(u"Cancel")
-        self.Cancel.setGeometry(QRect(260, 240, 113, 32))
+        self.Cancel.setGeometry(QRect(270, 420, 113, 32))
         self.layoutWidget = QWidget(Settings)
         self.layoutWidget.setObjectName(u"layoutWidget")
-        self.layoutWidget.setGeometry(QRect(20, 10, 235, 301))
+        self.layoutWidget.setGeometry(QRect(20, 10, 235, 451))
         self.verticalLayout = QVBoxLayout(self.layoutWidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.label_3 = QLabel(self.layoutWidget)
         self.label_3.setObjectName(u"label_3")
+        font = QFont()
+        font.setBold(True)
+        self.label_3.setFont(font)
 
         self.verticalLayout.addWidget(self.label_3)
 
@@ -70,6 +74,7 @@ class Ui_Settings(object):
 
         self.label = QLabel(self.layoutWidget)
         self.label.setObjectName(u"label")
+        self.label.setFont(font)
         self.label.setWordWrap(True)
 
         self.verticalLayout.addWidget(self.label)
@@ -91,6 +96,44 @@ class Ui_Settings(object):
 
         self.verticalLayout.addWidget(self.splicing_pts)
 
+        self.label_6 = QLabel(self.layoutWidget)
+        self.label_6.setObjectName(u"label_6")
+        self.label_6.setFont(font)
+
+        self.verticalLayout.addWidget(self.label_6)
+
+        self.label_7 = QLabel(self.layoutWidget)
+        self.label_7.setObjectName(u"label_7")
+
+        self.verticalLayout.addWidget(self.label_7)
+
+        self.frame_rate = QSpinBox(self.layoutWidget)
+        self.frame_rate.setObjectName(u"frame_rate")
+        self.frame_rate.setMinimum(15)
+        self.frame_rate.setMaximum(35)
+
+        self.verticalLayout.addWidget(self.frame_rate)
+
+        self.label_8 = QLabel(self.layoutWidget)
+        self.label_8.setObjectName(u"label_8")
+
+        self.verticalLayout.addWidget(self.label_8)
+
+        self.quality = QSlider(self.layoutWidget)
+        self.quality.setObjectName(u"quality")
+        self.quality.setMinimum(1)
+        self.quality.setMaximum(10)
+        self.quality.setValue(5)
+        self.quality.setOrientation(Qt.Horizontal)
+        self.quality.setTickPosition(QSlider.TicksBelow)
+
+        self.verticalLayout.addWidget(self.quality)
+
+        self.label_9 = QLabel(self.layoutWidget)
+        self.label_9.setObjectName(u"label_9")
+
+        self.verticalLayout.addWidget(self.label_9)
+
 
         self.retranslateUi(Settings)
 
@@ -111,5 +154,9 @@ class Ui_Settings(object):
         self.splicing.setText(QCoreApplication.translate("Settings", u"Activate Splicing ", None))
         self.label_2.setText(QCoreApplication.translate("Settings", u"No. of Splicing Points in each direction", None))
         self.splicing_pts.setText(QCoreApplication.translate("Settings", u"30", None))
+        self.label_6.setText(QCoreApplication.translate("Settings", u"Video Export", None))
+        self.label_7.setText(QCoreApplication.translate("Settings", u"Framerate (fps)", None))
+        self.label_8.setText(QCoreApplication.translate("Settings", u"Quality", None))
+        self.label_9.setText(QCoreApplication.translate("Settings", u"low                 medium                 high", None))
     # retranslateUi
 

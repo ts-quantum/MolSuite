@@ -200,7 +200,7 @@ class CreditsWindow(QDialog):
         return "<h1>Credits file not found.</h1>"
     
 class SettingsDialog(QtWidgets.QDialog, Ui_Settings):
-    def __init__(self, parent, is_bridging, rmsd_thr, n_bridgin_pts, is_splicing, n_splicing_pts):
+    def __init__(self, parent, is_bridging, rmsd_thr, n_bridgin_pts, is_splicing, n_splicing_pts, fps, qual):
         super().__init__(parent)
         self.setupUi(self) 
         valid_locale = QtCore.QLocale(QtCore.QLocale.Language.English)
@@ -218,6 +218,8 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Settings):
         self.splicing_pts.setText(str(n_splicing_pts))
         self.bridging.setChecked(is_bridging)
         self.splicing.setChecked(is_splicing)
+        self.frame_rate.setValue(fps)
+        self.quality.setValue(qual)
        
         # connect events and define signals ("Accept" returns 'Accepted')
         self.Apply.clicked.connect(self.validate_and_accept)
@@ -268,7 +270,9 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Settings):
                 float(self.edit_rmsd.text() or "0.0"),
                 int(self.bridging_pts.text() or "0"),
                 self.splicing.isChecked(),
-                int(self.splicing_pts.text() or "0")
+                int(self.splicing_pts.text() or "0"),
+                self.frame_rate.value(),
+                self.quality.value()
             )
         
 class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -481,6 +485,8 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.bridging_pts = 10
         self.splicing_pts = 30
         self.rmsd_thr = 0.2
+        self.fps = 15
+        self.qual = 5
 
     def _setup_split_dialog(self):
         self.split_dialog = QMessageBox(self)
@@ -783,6 +789,22 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         
         data_ = [self.dataset_dict[self.data_attached[i]] for i in range(2)]
         
+        lengths = [
+            len(data_[0].atom_types[0]),
+            len(data_[0].atom_types[-1]),
+            len(data_[1].atom_types[0]),
+            len(data_[1].atom_types[-1])
+        ]
+
+        if len(set(lengths)) != 1:
+            self.log(
+                f"Automatic flipping failed: Boundary structures have inconsistent atom counts {lengths}. "
+                "This happens if fragments leave the system. "
+                "Please use 'Alignment masked' to manually connect specific endpoints.", 
+                "error"
+            )
+            return
+        
         # Determine the correct flip and the required atom mapping simultaneously
         best_case, mapping, best_rmsd = find_best_flip_strategy(data_[0], data_[1])
         self.log(f"Best alignment strategy: {best_case} (RMSD: {best_rmsd:.4f} Å)", "info")
@@ -1075,13 +1097,13 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def show_settings(self):
         # current values in main app are handed over to grid_settings dialog
-        dialog = SettingsDialog(self, self.bridging, self.rmsd_thr, self.bridging_pts,  self.splicing, self.splicing_pts)
+        dialog = SettingsDialog(self, self.bridging, self.rmsd_thr, self.bridging_pts,  self.splicing, self.splicing_pts, self.fps, self.qual)
         # User clicks 'Apply':
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             new_data = dialog.get_values()
             if new_data:
                 # new values are handed over to main app
-                self.bridging, self.rmsd_thr, self.bridging_pts,  self.splicing, self.splicing_pts = new_data
+                self.bridging, self.rmsd_thr, self.bridging_pts,  self.splicing, self.splicing_pts, self.fps, self.qual = new_data
 
     # geo_plotter drop-down 
     def show_geo_menu(self, pos):
@@ -1294,9 +1316,10 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # 3. Start Movie-Writer 
         # 'framerate'  (e.g. 15-24 FPS)
-        plotter.open_movie(path, framerate=15, quality=5, macro_block_size=1)
+        plotter.open_movie(path, framerate=self.fps, quality=self.qual, macro_block_size=1)
 
-        # ProgressBar 
+        # ProgressBar
+        self.progressBar.setFormat("Video Export started... %p%") 
         self.progressBar.setRange(0, length)
         self.progressBar.show()
 
@@ -1410,7 +1433,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             for i in range(len(raw_points))
         ]
 
-        self.progressBar.setFormat("Bld Export startet... %p%")
+        self.progressBar.setFormat("Bld Export started... %p%")
         self.progressBar.show()
         self.cancel_export.show()
 
@@ -1447,7 +1470,7 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         obj_prefix = "mol" # For the object inside: mol_001
         script_name = "import_and_animate.py" # blender Script
         
-        self.progressBar.setFormat("Bld Export startet... %p%")
+        self.progressBar.setFormat("Bld Export started... %p%")
         self.progressBar.show()
         self.cancel_export.show()
         self.one_worker = OneFileExportWorker(data_, path, obj_prefix, script_name, self.cpk_colors, 

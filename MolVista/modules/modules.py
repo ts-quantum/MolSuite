@@ -334,7 +334,7 @@ def export_pov_header(length, filename="test.inc", object_name="name"):
 
     with open(filename, 'w') as f:
         f.write(f"""\
-// created with MolVista by Dr. Tobias Schulz
+// created with MolVista (C) 2026 by Dr. Tobias Schulz
 // IRC Trajectory as Array of Molecules
 // #include "{object_name}.inc" into povray
 // ---- use "object{{{object_name}[i]}}" in code
@@ -441,10 +441,10 @@ def create_split_orca(xyz_path):
 
     work_dir = os.path.dirname(xyz_path)
     xyz_filename = os.path.basename(xyz_path)
-    # Name des Hilfsskripts basierend auf der XYZ-Datei
+    # split script name, based on xyz file
     script_name = os.path.join(work_dir, f"{os.path.splitext(xyz_filename)[0]}_split.py")
 
-    # Das Template als String (mit Platzhaltern)
+    # f-string template
     template_content = f"""# --- CONFIGURATION: ADJUST BEFORE RUNNING ---
 ##### created by MolVista (C) 2026 by Dr. Tobias Schulz
 ##### This Python Script will create a series of ORCA Input files from 
@@ -459,14 +459,18 @@ nproc = '8'
 ### adapt to your specific environment
 ORCA_EXE = "/usr/local/orca_6_1_0/orca"
 ORCA_2MKL = "/usr/local/orca_6_1_0/orca_2mkl"
-# pre-configured by MolAlign
+# pre-configured by MolVista
 inp_file = '{os.path.splitext(xyz_filename)[0]}.xyz' 	
 
 import os, sys
 
 def run_split():
-    with open(inp_file, 'r') as f:
-        lines = f.readlines()
+    try:
+        with open(inp_file, 'r') as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"Error: {{e}}")
+        return
     try:
         num_atoms = int(lines[0].strip())
     except:
@@ -525,10 +529,10 @@ def create_split_nw(xyz_path):
 
     work_dir = os.path.dirname(xyz_path)
     xyz_filename = os.path.basename(xyz_path)
-    # Name des Hilfsskripts basierend auf der XYZ-Datei
+    # split script name, based on xyz file
     script_name = os.path.join(work_dir, f"{os.path.splitext(xyz_filename)[0]}_split.py")
 
-    # Das Template als String (mit Platzhaltern)
+    # f-string template
     template_content = f"""# --- CONFIGURATION: ADJUST BEFORE RUNNING ---
 ##### created by MolVista (C) 2026 by Dr. Tobias Schulz
 ##### This Python Script will create a series of NWChem Input files from 
@@ -548,14 +552,18 @@ work_dir = 'calc'
 scr_dir = 'scr'
 ### adapt to your specific environment
 nw_cmd = 'mpiexec -np 8 nwchem'
-# pre-configured by MolAlign
+# pre-configured by MolVista
 inp_file = '{os.path.splitext(xyz_filename)[0]}.xyz'	
 
 import os, sys 
 
 def run_split():
-    with open(inp_file, 'r') as f:
-        lines = f.readlines()
+    try:
+        with open(inp_file, 'r') as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"Error: {{e}}")
+        return
     try:
         num_atoms = int(lines[0].strip())
     except:
@@ -638,16 +646,23 @@ def create_split_psi4(xyz_path):
 
     work_dir = os.path.dirname(xyz_path)
     xyz_filename = os.path.basename(xyz_path)
-    # Name des Hilfsskripts basierend auf der XYZ-Datei
+    # split script name, based on xyz filename
     script_name = os.path.join(work_dir, f"{os.path.splitext(xyz_filename)[0]}_split.py")
 
-    # Das Template als String (mit Platzhaltern)
+    # f-string Template
     template_content = f"""# --- CONFIGURATION: ADJUST BEFORE RUNNING ---
 ##### created by MolVista (C) 2026 by Dr. Tobias Schulz
-##### This Python Script to run a Psi-4 single point calculation
-##### for each point on a given IRC Trajectory and to produce a 
-##### .molden and .fchk file for each point
-##### must be run inside a Psi-Conda environment
+## Psi4 IRC Split Script
+## -------------------------
+## Performs single-point calculations for each geometry along a provided 
+## Intrinsic Reaction Coordinate (IRC) trajectory. 
+## Outputs:  
+## - .molden files 
+## - .fchk files 
+## --> can be used in BatchMol to animate ESP, Spin, MOs over a given 
+##     trajectory
+## Requirements:
+## - Must be executed within a Psi4 Conda environment.
 ### Edit method, basis set, etc. here
 charge = '' # e.g. '0'
 mult = '' # e.g. '1'
@@ -656,7 +671,7 @@ ref = ''  # e.g. 'rhf', 'rks', 'uhf', 'uks', ...
 method = '' # e.g. 'scf', 'pbe0', 'b3lyp', ...
 mem = '1000mb'
 nproc = 8
-#pre-configured by MolAlign
+#pre-configured by MolVista
 xyz_input = '{os.path.splitext(xyz_filename)[0]}.xyz' 
 
 import os, sys

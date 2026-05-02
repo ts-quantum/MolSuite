@@ -199,25 +199,50 @@ class MoleculeData: #always call arguments by name!
         self.grid_values = grid_values
         self.surf_mesh = surf_mesh
         self.grid_indices = grid_indices
-    
+
     @classmethod
     def from_cube(cls, filepath):
         bohr_to_angstrom = 0.529177
         fname = os.path.basename(filepath)
-        reader=pv.get_reader(filepath)
-        atoms = reader.read(grid=False)
+        
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+        # Line 3: Number of Atoms and Origin
+        line3 = lines[2].split()
+        num_atoms = abs(int(line3[0]))
+        # convert origin in cube file (bohr to angstrom)
+        origin = np.array([float(x) for x in line3[1:4]]) * bohr_to_angstrom
+        # Lines 4, 5, 6: Spacing for x, y, z
+        # assumption: orthogonal grid
+        spacing_x = float(lines[3].split()[1]) * bohr_to_angstrom
+        spacing_y = float(lines[4].split()[2]) * bohr_to_angstrom
+        spacing_z = float(lines[5].split()[3]) * bohr_to_angstrom
+        spacing = [spacing_x, spacing_y, spacing_z]
+
+        # read atoms from line 7 following
+        atoms_list = []
+        atom_types = []
+        for i in range(6, 6 + num_atoms):
+            parts = lines[i].split()
+            atom_types.append(int(parts[0]))
+            atoms_list.append([float(x) * bohr_to_angstrom for x in parts[2:5]])
+        
+        atom_points = np.array(atoms_list)
+
+        # read grid via PyVista, but replace geometry
+        reader = pv.get_reader(filepath)
         grid = reader.read(grid=True)
-        atoms.points *= bohr_to_angstrom
-        grid.origin = [x * bohr_to_angstrom for x in grid.origin]
-        grid.spacing = [s * bohr_to_angstrom for s in grid.spacing]
-        atom_points = atoms.points
-        atom_types = atoms.point_data["atom_type"].astype(int) + 1
+        
+        # alignment
+        grid.origin = origin
+        grid.spacing = spacing
+
         return cls(
             name=fname,
-            atoms=atoms,
             atom_points=atom_points,
-            atom_types=atom_types,
-            grid=grid)
+            atom_types=np.array(atom_types),
+            grid=grid
+        )
 
     @classmethod
     def from_molden(cls, filepath):
@@ -1290,19 +1315,32 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
          cb_pl.close()
 
     def export_cube(self):
+        index = self.file_list.currentIndex()
+        data_ = self.dataset_dict.get(index.data())
+        if not hasattr(self, 'grid') or self.grid is None:
+            QMessageBox.information(self, "Cube Export", f"No Grid, please draw MO or Iso-Density first")
+            return
+        if not hasattr(data_.mol,'natm'):
+            QMessageBox.information(self, "Cube Export", f"This Operation is only permitted from *.molden or *.fchk files")
+            return
+        if self.grid.n_points != self.nx * self.ny * self.nz:
+            QMessageBox.information(self, "Cube Export", f"Grid mismatch, please draw MO or Iso-Density first")
+            return
         path, _ = QFileDialog.getSaveFileName(
                     None, 
                     "Export Cube", 
                     "cube", 
                     "cube (*.cube)"
                     )
-        index = self.file_list.currentIndex()
-        data_ = self.dataset_dict.get(index.data())
-
         save_cube(path, data_.mol, self.grid, nx=self.nx, ny=self.ny, nz=self.nz)
         save_xyz(path,data_.mol)
 
     def export_esp_cube(self):
+        index = self.file_list.currentIndex()
+        data_obj = self.dataset_dict.get(index.data())
+        if data_obj.type != 'molden':
+            QMessageBox.information(self, "Cube ESP Export", f"This Operation is only permitted from *.molden or *.fchk files")
+            return  
         filename, _ = QFileDialog.getSaveFileName(
                     None, 
                     "Export Cube", 
@@ -1310,15 +1348,10 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
                     "cube (*.cube)"
                     )
         if not filename: return
-        index = self.file_list.currentIndex()
-        data_obj = self.dataset_dict.get(index.data())
-
+        
         # Set progress bar to indeterminate (marquee mode).
         self.progressBar.setRange(0, 0) 
         self.progressBar.setFormat("Exporting Cube (Parallel)...")
-        
-        index = self.file_list.currentIndex()
-        data_obj = self.dataset_dict.get(index.data())
 
         self.cube_thread = CubeWorkerThread(data_obj, filename, 
                 nx=self.nx, ny=self.ny, nz=self.nz, padding=self.padding)

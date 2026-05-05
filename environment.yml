@@ -15,5 +15,8 @@ dependencies:
   - pyperclip
   - cclib
   - h5py
+  - imageio
+  - imageio-ffmpeg
+  - ffmpeg
   - pip
   - conda-pack

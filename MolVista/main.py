@@ -1302,6 +1302,22 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.log(f"Failed to copy image: {str(e)}", "error")
 
     def handle_export_video(self, idx):
+        
+        # load Plugin
+        try:
+            import imageio.plugins.ffmpeg
+        except ImportError:
+            pass
+
+        # set path
+        if platform.system() == "Darwin":
+            try:
+                import imageio_ffmpeg
+                os.environ["IMAGEIO_FFMPEG_EXE"] = imageio_ffmpeg.get_ffmpeg_exe()
+            except Exception:
+                QMessageBox.critical(self, "Export Error", "FFmpeg not found.")
+                return
+    
         # 1. define target file
         path, _ = QFileDialog.getSaveFileName(self, "Save Video", "animation.mp4", "Video (*.mp4);;GIF (*.gif)")
         if not path: return
@@ -1312,11 +1328,22 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         if not data_: return
 
         plotter = self.geo_plotters[idx]
+
+        plotter.render()
+  
+        h, w, _ = plotter.image.shape
+        w_target, h_target = w // 2 * 2, h // 2 * 2
+
+
         length = len(data_.atom_points)
 
         # 3. Start Movie-Writer 
         # 'framerate'  (e.g. 15-24 FPS)
-        plotter.open_movie(path, framerate=self.fps, quality=self.qual, macro_block_size=1)
+        plotter.open_movie(path, framerate=self.fps, 
+                           quality=self.qual, 
+                           macro_block_size=None
+                           #ffmpeg_params=['-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2']
+                        )
 
         # ProgressBar
         self.progressBar.setFormat("Video Export started... %p%") 
@@ -1341,7 +1368,12 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 plotter.add_mesh(mesh, reset_camera=False, smooth_shading=True, **args)
             
             # capture picture
-            plotter.write_frame()
+
+            current_img = plotter.image
+           
+            current_img = current_img[:h_target, :w_target]
+
+            plotter.mwriter.append_data(current_img)
             
             # GUI Update
             self.progressBar.setValue(i + 1)

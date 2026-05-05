@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>402</width>
-    <height>473</height>
+    <height>471</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -44,7 +44,7 @@
     <rect>
      <x>20</x>
      <y>10</y>
-     <width>235</width>
+     <width>237</width>
      <height>451</height>
     </rect>
    </property>
@@ -53,7 +53,6 @@
      <widget class="QLabel" name="label_3">
       <property name="font">
        <font>
-        <weight>75</weight>
         <bold>true</bold>
        </font>
       </property>
@@ -110,7 +109,6 @@
      <widget class="QLabel" name="label">
       <property name="font">
        <font>
-        <weight>75</weight>
         <bold>true</bold>
        </font>
       </property>
@@ -153,7 +151,6 @@
      <widget class="QLabel" name="label_6">
       <property name="font">
        <font>
-        <weight>75</weight>
         <bold>true</bold>
        </font>
       </property>
@@ -198,17 +195,17 @@
        <number>5</number>
       </property>
       <property name="orientation">
-       <enum>Qt::Horizontal</enum>
+       <enum>Qt::Orientation::Horizontal</enum>
       </property>
       <property name="tickPosition">
-       <enum>QSlider::TicksBelow</enum>
+       <enum>QSlider::TickPosition::TicksBelow</enum>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QLabel" name="label_9">
       <property name="text">
-       <string>low                 medium                 high</string>
+       <string>low                    medium                   high</string>
       </property>
      </widget>
     </item>

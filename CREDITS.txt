@@ -1,5 +1,5 @@
 ============================================================
-OrbVista / MolViewer3D - Credits & Licenses
+OrbVista / MolVista - Credits & Licenses
 ============================================================
 
 OrbVista is a comprehensive 3D visualization and analysis 
@@ -27,6 +27,10 @@ CORE QUANTUM CHEMISTRY & DATA:
 4. NumPy & SciPy (BSD License)
    https://numpy.org | https://scipy.org
 
+5. Hungarian Algorithm (`linear_sum_assignment`).
+
+6. Pandas (BSD): Efficient management of tabular data.
+
 GRAPHICS & USER INTERFACE:
 ------------------------------------------------------------
 5. PySide6 (GNU LGPL v3)
@@ -41,6 +45,12 @@ GRAPHICS & USER INTERFACE:
 
 8. Matplotlib (PSF/BSD compatible)
    https://matplotlib.org
+
+9. imageio-ffmpeg (MIT): Interface and wrapper for FFmpeg binaries.
+
+10.FFmpeg (LGPL v2.1): Cross-platform solution to record, convert
+   and stream audio and video. Bundled via imageio-ffmpeg.
+   (https://ffmpeg.org)
 
 UTILITIES:
 ------------------------------------------------------------

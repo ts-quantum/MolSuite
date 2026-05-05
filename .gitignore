@@ -3,3 +3,6 @@ env
 
 #pycache
 **/__pycache__/
+
+#tar.xz files
+**/*.tar.xz

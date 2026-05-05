@@ -6,6 +6,7 @@ APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 #edit path according to your specific settings
 #path to *.desktop scripts
 BIN_DIR="$HOME/.local/share/applications"
+#BIN_DIR="/usr/share/applications"
 
 echo "Installing MoleculeSuite Shortcuts..."
 
@@ -18,7 +19,7 @@ create_launcher() {
 
     cat <<EOF > "$desktop_file"
 [Desktop Entry]
-Version=1.0
+Version=1.3
 Type=Application
 Name=$name
 Exec=$APP_DIR/$exec_file
@@ -35,5 +36,5 @@ create_launcher "MolVista" "MolVista_run" "MolVista/modules/icon.png"
 # 2. OrbVista
 create_launcher "OrbVista" "OrbVista_run" "OrbVista/modules/icon.png"
 
-update-desktop-database ~/.local/share/applications/ 2>/dev/null
+update-desktop-database "$BIN_DIR"/ 2>/dev/null
 echo "Done! Both apps are now available in your menu."

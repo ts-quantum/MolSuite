@@ -877,8 +877,8 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         if rmsd >= self.rmsd_thr and self.bridging == True:
             # bridge segments in case of high rmsd
             trans_pts, trans_tps = bridge_segments(coords1, aligned_coords2, types, steps=self.bridging_pts) 
-        
-        combined_points = np.array(data_[0].atom_points + list(trans_pts) + aligned_traj2_coords[1:])
+
+        combined_points = np.array(list(data_[0].atom_points) + list(trans_pts) + list(aligned_traj2_coords[1:]))
         combined_types = data_[0].atom_types + list(trans_tps) + data_[1].atom_types[1:]
 
         # Energy Offset Calculation
@@ -1328,23 +1328,21 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
         if not data_: return
 
         plotter = self.geo_plotters[idx]
-
-        plotter.render()
-  
-        h, w, _ = plotter.image.shape
-        w_target, h_target = w // 2 * 2, h // 2 * 2
-
-
         length = len(data_.atom_points)
 
-        # 3. Start Movie-Writer 
-        # 'framerate'  (e.g. 15-24 FPS)
-        plotter.open_movie(path, framerate=self.fps, 
+        if platform.system() == "Darwin":
+            # 3. Start Movie-Writer 
+            # 'framerate'  (e.g. 15-24 FPS)
+            plotter.open_movie(path, framerate=self.fps, quality=self.qual, macro_block_size=1)
+        else:
+            plotter.render()
+            h, w, _ = plotter.image.shape
+            w_target, h_target = w // 2 * 2, h // 2 * 2
+            plotter.open_movie(path, framerate=self.fps, 
                            quality=self.qual, 
                            macro_block_size=None
                            #ffmpeg_params=['-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2']
                         )
-
         # ProgressBar
         self.progressBar.setFormat("Video Export started... %p%") 
         self.progressBar.setRange(0, length)
@@ -1367,13 +1365,13 @@ class MoleculeApp(QtWidgets.QMainWindow, Ui_MainWindow):
                 # IMPORTANT reset_camera=False, to keep camera focus steady
                 plotter.add_mesh(mesh, reset_camera=False, smooth_shading=True, **args)
             
-            # capture picture
-
-            current_img = plotter.image
-           
-            current_img = current_img[:h_target, :w_target]
-
-            plotter.mwriter.append_data(current_img)
+            if platform.system() == "Darwin":
+                # capture picture
+                plotter.write_frame()
+            else:
+                current_img = plotter.image
+                current_img = current_img[:h_target, :w_target]
+                plotter.mwriter.append_data(current_img)
             
             # GUI Update
             self.progressBar.setValue(i + 1)

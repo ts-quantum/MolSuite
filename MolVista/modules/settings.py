@@ -23,7 +23,7 @@ class Ui_Settings(object):
     def setupUi(self, Settings):
         if not Settings.objectName():
             Settings.setObjectName(u"Settings")
-        Settings.resize(402, 471)
+        Settings.resize(402, 473)
         self.Apply = QPushButton(Settings)
         self.Apply.setObjectName(u"Apply")
         self.Apply.setGeometry(QRect(270, 380, 113, 32))
@@ -32,7 +32,7 @@ class Ui_Settings(object):
         self.Cancel.setGeometry(QRect(270, 420, 113, 32))
         self.layoutWidget = QWidget(Settings)
         self.layoutWidget.setObjectName(u"layoutWidget")
-        self.layoutWidget.setGeometry(QRect(20, 10, 237, 451))
+        self.layoutWidget.setGeometry(QRect(20, 10, 235, 451))
         self.verticalLayout = QVBoxLayout(self.layoutWidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -124,8 +124,8 @@ class Ui_Settings(object):
         self.quality.setMinimum(1)
         self.quality.setMaximum(10)
         self.quality.setValue(5)
-        self.quality.setOrientation(Qt.Orientation.Horizontal)
-        self.quality.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.quality.setOrientation(Qt.Horizontal)
+        self.quality.setTickPosition(QSlider.TicksBelow)
 
         self.verticalLayout.addWidget(self.quality)
 
@@ -157,6 +157,6 @@ class Ui_Settings(object):
         self.label_6.setText(QCoreApplication.translate("Settings", u"Video Export", None))
         self.label_7.setText(QCoreApplication.translate("Settings", u"Framerate (fps)", None))
         self.label_8.setText(QCoreApplication.translate("Settings", u"Quality", None))
-        self.label_9.setText(QCoreApplication.translate("Settings", u"low                    medium                   high", None))
+        self.label_9.setText(QCoreApplication.translate("Settings", u"low                 medium                 high", None))
     # retranslateUi
 
